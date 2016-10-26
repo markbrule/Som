@@ -36,17 +36,17 @@ class SomLattice(var rows: Int, var cols: Int, var dim: Int) {
    */
   def train(ivs: List[Array[Double]], epochs: Int, steps: Int, 
       fn: (Double, Double, Double, Double, Int, Int) => Double,
-      progress: (SomLattice, Int) => Unit) = {
+      progress: (SomLattice, Int, Int) => Unit) = {
     println("Beginning average E(QE) is " + averageQuantError(ivs))
     for {
       e <- 0 until epochs
       t <- 0 until steps
     } {
-      ivs.foreach( applyLearningSingle(_, e+1, t+1, fn ) )
       if (t == 0) { 
         println("Average E(QE) beginning epoch " + (e+1) + " is " + averageQuantError(ivs))
-        progress(this, e)
       }
+      progress(this, e, t)
+      ivs.foreach( applyLearningSingle(_, e+1, t+1, fn ) )
     }
   }
   
