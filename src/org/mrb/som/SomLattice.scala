@@ -48,6 +48,7 @@ class SomLattice(var rows: Int, var cols: Int, var dim: Int) {
       progress(this, e, t)
       ivs.foreach( applyLearningSingle(_, e+1, t+1, fn ) )
     }
+    println("Final average E(QE) is " + averageQuantError(ivs))
   }
   
   /**

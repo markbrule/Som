@@ -9,13 +9,14 @@ import org.opencv.core.Scalar
 import org.opencv.core.Point
 
 object Test {
-  def radius: Int = 25
-  def rows: Int = 50
-  def columns: Int = 50
+  def radius: Int = 10
+  def rows: Int = 20
+  def columns: Int = 20
   def dimension: Int = 3
-  def randomVecs: Int = 1000
-  val epochs = 2
+  def randomVecs: Int = 250
+  val epochs = 5
   val its = 500
+  val jitter = 0.2
   
   val start: Double = -20.0
   val end: Double = 20.0
@@ -27,7 +28,9 @@ object Test {
     var l: SomLattice = null
     var ivecs: List[Array[Double]] = null
     var v : Array[Double] = null
-    val theta: GaussianIoT = new GaussianIoT(rows, columns, epochs, its)
+//    val theta: GaussianPower = new GaussianPower(rows, columns, epochs, its)
+//    val theta: GaussianIoT = new GaussianIoT(rows, columns, epochs, its)
+    val theta: GaussianLinear = new GaussianLinear(rows, columns, epochs, its)
     val progress: Progress = new Progress(0, 10, radius, img)    
 /*
     for (t <- 1 until 202 by 100) {
@@ -41,26 +44,31 @@ object Test {
     l.init
     
     ivecs = List(
-         Array(1.0, 0.0, 0.0),
-         Array(0.0, 1.0, 0.0),
-         Array(0.0, 0.0, 1.0),
-         Array(1.0, 0.0, 1.0),
-         Array(0.0, 1.0, 1.0),
-         Array(1.0, 1.0, 0.0),
-         Array(1.0, 1.0, 1.0),
-         Array(0.0, 0.0, 0.0)
+         Array(1.0-jitter, 0.0+jitter, 0.0+jitter),
+         Array(0.0+jitter, 1.0-jitter, 0.0+jitter),
+         Array(0.0+jitter, 0.0+jitter, 1.0-jitter),
+         Array(1.0-jitter, 0.0+jitter, 1.0-jitter),
+         Array(0.0+jitter, 1.0-jitter, 1.0-jitter),
+         Array(1.0-jitter, 1.0-jitter, 0.0+jitter),
+         Array(1.0-jitter, 1.0-jitter, 1.0-jitter),
+         Array(0.0+jitter, 0.0+jitter, 0.0+jitter)
          )
 
     for {
       i <- 0 until randomVecs
     } {
-      ivecs = ivecs ++ List(Array(scala.util.Random.nextDouble(), scala.util.Random.nextDouble(), scala.util.Random.nextDouble()))
+      val base = ivecs(scala.util.Random.nextInt(8))
+      ivecs = ivecs ++ List(Array(max(0.0,min(1.0,scala.util.Random.nextDouble()*jitter+base(0))), 
+                                  max(0.0,min(1.0,scala.util.Random.nextDouble()*jitter+base(1))), 
+                                  max(0.0,min(1.0,scala.util.Random.nextDouble()*jitter+base(2)))))
     }
-  
+
+//    ivecs.foreach((x:Array[Double]) => println("(" + x(0).toString + "," + x(1).toString + "," + x(2).toString + ")"))
     println("Training for " + epochs + " epochs with " + its + " iterations per cycle")
     println("Network has " + (rows*columns) + " nodes")
     println("Total of " + ivecs.length + " input vectors")
     println("Using " + theta.getClass.getName)
+    println("Jitter of " + jitter.toString)
     l.train(ivecs, epochs, its, theta.eval, progress.show)
     
     v = Array.fill[Double](dimension){scala.util.Random.nextDouble}
@@ -69,25 +77,6 @@ object Test {
     //l.show(false)
 
     progress.show(l, 1000000, 1000000)
-/*  
-  def bubble_linear(x: Double, y: Double, cx: Double, cy: Double, epoch: Int, ts: Int): Double = {
-    val dx = x - cx
-    val dy = y - cy
-    val d2 = (dx*dx) + (dy*dy)
-    if (d2 <= 1.0) 1.0 / ts else 0.0
-  }
-
- 
-  def gaussian_power(x: Double, y: Double, cx: Double, cy: Double, epoch: Int, ts: Int): Double = {
-    val dx = x - cx
-    val dy = y - cy
-    val d2 = dx*dx + dy*dy
-    val alpha = pow(0.005, ts/epoch)
-    val sigma = 1.0 / (epoch * ts)
-    val v = alpha * exp(- sqrt(d2) / (2 * sigma * sigma))
-    v
-  }
-*/    
 }
   
 def eval_function(start: Double, end: Double, step: Double, epoch: Int, ts: Int, 
@@ -132,3 +121,11 @@ class GaussianIoT(rows: Int, columns: Int, maxEpochs: Int, maxSteps: Int)
     fGaussian(x, y, cx, cy, epoch, ts) * lrIoT(ts)
   }
 }
+
+class GaussianPower(rows: Int, columns: Int, maxEpochs: Int, maxSteps: Int)
+  extends TrainingFunction(rows,columns,maxEpochs,maxSteps) {
+  override def eval(x: Double, y: Double, cx: Double, cy: Double, epoch: Int, ts: Int): Double = {
+    fGaussian(x, y, cx, cy, epoch, ts) * lrPowerSeries(ts)
+  }
+}
+
