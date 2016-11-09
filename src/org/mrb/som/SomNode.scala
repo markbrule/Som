@@ -1,5 +1,8 @@
 package org.mrb.som
 
+import scala.math.min
+import scala.math.max
+
 /**
  * SomNode - class to implement a single Node in a SOM
  * 
@@ -47,8 +50,18 @@ class SomNode(var x: Double, var y: Double, var dim: Int, init: (Int) => Array[D
     for ( i <- 0 until dim ) { w.update(i, w(i) + h*(ivec(i) - w(i))) }
   }
   
+  /**
+   * Find the minimum and maximum distances to the neighbors and return them as a tuple (min,max)
+   */
+  def neighborDist2() : (Double, Double) = {
+    var d = ngbrs.map(_.dist2(w))
+    val mx = d.reduce((a:Double, b:Double) => max(a,b))
+    val mn = d.reduce((a:Double, b:Double) => min(a,b))
+    (mn,mx)
+  }
+  
   override def toString = { "loc = (" + "%.3f".format(x) + "," + "%.3f".format(y) + 
-    ") weight = {" + w.map("%.3f".format(_)).reduceLeft(_ + "," + _) + "}" }
+    ") weight = {" + w.map("%.6f".format(_)).reduceLeft(_ + "," + _) + "}" }
   
   def showNeighbors() = {
     println("Neighbors of " + this.toString)

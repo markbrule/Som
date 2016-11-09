@@ -52,6 +52,14 @@ class SomLattice(var rows: Int, var cols: Int, var dim: Int) {
   }
   
   /**
+   * Get the minimum and maximum distances (squared) to neighbors returned as a tuple (min,max)
+   */
+  def neighborDist2() : (Double, Double) = {
+    members.flatten.map(_.neighborDist2())
+      .reduce( (a:(Double,Double), b:(Double,Double)) => (min(a._1,b._1), max(a._2,b._2)))  
+  }
+  
+  /**
    * Average quantization error for a set of vectors
    */
   def averageQuantError(ivec: List[Array[Double]]): Double = {

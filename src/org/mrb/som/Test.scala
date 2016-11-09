@@ -9,14 +9,14 @@ import org.opencv.core.Scalar
 import org.opencv.core.Point
 
 object Test {
-  def radius: Int = 10
-  def rows: Int = 20
-  def columns: Int = 20
+  def radius: Int = 25
+  def rows: Int = 50
+  def columns: Int = 50
   def dimension: Int = 3
-  def randomVecs: Int = 250
-  val epochs = 5
+  def randomVecs: Int = 100
+  val epochs = 1
   val its = 500
-  val jitter = 0.2
+  val jitter = 0.1
   
   val start: Double = -20.0
   val end: Double = 20.0
@@ -40,18 +40,19 @@ object Test {
     }
     return
 */
+//    l = new SomLatticeHex(rows, columns, dimension)
     l = new SomLatticeHex(rows, columns, dimension)
     l.init
     
     ivecs = List(
-         Array(1.0-jitter, 0.0+jitter, 0.0+jitter),
-         Array(0.0+jitter, 1.0-jitter, 0.0+jitter),
-         Array(0.0+jitter, 0.0+jitter, 1.0-jitter),
-         Array(1.0-jitter, 0.0+jitter, 1.0-jitter),
-         Array(0.0+jitter, 1.0-jitter, 1.0-jitter),
-         Array(1.0-jitter, 1.0-jitter, 0.0+jitter),
-         Array(1.0-jitter, 1.0-jitter, 1.0-jitter),
-         Array(0.0+jitter, 0.0+jitter, 0.0+jitter)
+         Array(1.0, 0.0, 0.0),
+         Array(0.0, 1.0, 0.0),
+         Array(0.0, 0.0, 1.0),
+         Array(1.0, 0.0, 1.0),
+         Array(0.0, 1.0, 1.0),
+         Array(1.0, 1.0, 0.0),
+         Array(1.0, 1.0, 1.0),
+         Array(0.0, 0.0, 0.0)
          )
 
     for {
@@ -74,9 +75,28 @@ object Test {
     v = Array.fill[Double](dimension){scala.util.Random.nextDouble}
     println("Input vector = {" + v.map("%.3f".format(_)).reduceLeft(_ + "," + _) + "}")
     println("Closest node = " + l.closestTo(v).toString)
-    //l.show(false)
-
+//    l.show(false)
+    val mm = l.neighborDist2()
+    println("Minimum distance = " + mm._1 + ", maximum = " + mm._2)
+    
     progress.show(l, 1000000, 1000000)
+    
+    var umatrix: Mat = new Mat(2*(columns+1)*radius, 2*(rows+1)*radius, CvType.CV_8UC3, new Scalar(0,0,0))
+    val yellow = new Scalar(255.0, 255.0, 0.0)
+    l.members.flatten.foreach((n) =>
+      (n.ngbrs zip n.ngbrs.map(_.neighborDist2())).foreach((d) => {
+        val mid = new Point(radius+2*(n.x+d._1.x)*radius/2, radius+2*(n.y+d._1.y)*radius/2)
+        val grey = 255.0 * d._2._2 / mm._2
+        org.opencv.imgproc.Imgproc.circle(umatrix, mid, radius/2, new Scalar(grey, grey, grey), -1, 8, 0)
+      }))
+    l.members.flatten.foreach((n) => 
+      org.opencv.imgproc.Imgproc.circle(umatrix, 
+                                        new Point((2*n.x+1)*radius, (2*n.y+1)*radius), 
+                                        (1.66*radius/2.0).toInt, 
+                                        new Scalar(255.0*n.w(0), 255.0*n.w(1), 255.0*n.w(2)), 
+                                        -1, 8, 0))
+
+    org.opencv.imgcodecs.Imgcodecs.imwrite("/home/mark/umatrix.jpg", umatrix)
 }
   
 def eval_function(start: Double, end: Double, step: Double, epoch: Int, ts: Int, 
