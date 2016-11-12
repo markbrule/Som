@@ -66,6 +66,21 @@ class SomLattice(var rows: Int, var cols: Int, var dim: Int) {
     (ivec zip ivec.map(closestTo(_))).map((x) => (x._2.dist2(x._1))).reduceLeft(_ + _) / ivec.length
   }
   
+  /**
+   * Provide a callback to each node in the U-Matrix
+   * Note that this calls each U-Matrix node twice
+   * fn parameter takes (nodex, nodey, node_distance)
+   */
+  def umatrixNodes(fn: (Double, Double, Double) => Unit) : Unit = {
+    members.flatten.foreach((n) => {
+      (n.ngbrs zip n.ngbrs.map(_.dist2(n.w))).foreach((d) => {
+        val mx = (n.x+d._1.x)/2
+        val my = (n.y+d._1.y)/2
+        fn(mx, my, d._2) 
+      })
+    })
+  }
+  
   def show(neighbors: Boolean) : Unit = {
     var i, j = 0
     var s = ""

@@ -13,7 +13,7 @@ object Test {
   def rows: Int = 50
   def columns: Int = 50
   def dimension: Int = 3
-  def randomVecs: Int = 100
+  def randomVecs: Int = 2000
   val epochs = 1
   val its = 500
   val jitter = 0.1
@@ -40,7 +40,7 @@ object Test {
     }
     return
 */
-//    l = new SomLatticeHex(rows, columns, dimension)
+//    l = new SomLatticeRect(rows, columns, dimension)
     l = new SomLatticeHex(rows, columns, dimension)
     l.init
     
@@ -48,17 +48,17 @@ object Test {
          Array(1.0, 0.0, 0.0),
          Array(0.0, 1.0, 0.0),
          Array(0.0, 0.0, 1.0),
-         Array(1.0, 0.0, 1.0),
-         Array(0.0, 1.0, 1.0),
-         Array(1.0, 1.0, 0.0),
-         Array(1.0, 1.0, 1.0),
+//         Array(1.0, 0.0, 1.0),
+//         Array(0.0, 1.0, 1.0),
+//         Array(1.0, 1.0, 0.0),
+//         Array(1.0, 1.0, 1.0),
          Array(0.0, 0.0, 0.0)
          )
 
     for {
       i <- 0 until randomVecs
     } {
-      val base = ivecs(scala.util.Random.nextInt(8))
+      val base = ivecs(scala.util.Random.nextInt(ivecs.length))
       ivecs = ivecs ++ List(Array(max(0.0,min(1.0,scala.util.Random.nextDouble()*jitter+base(0))), 
                                   max(0.0,min(1.0,scala.util.Random.nextDouble()*jitter+base(1))), 
                                   max(0.0,min(1.0,scala.util.Random.nextDouble()*jitter+base(2)))))
@@ -82,17 +82,22 @@ object Test {
     progress.show(l, 1000000, 1000000)
     
     var umatrix: Mat = new Mat(2*(columns+1)*radius, 2*(rows+1)*radius, CvType.CV_8UC3, new Scalar(0,0,0))
-    val yellow = new Scalar(255.0, 255.0, 0.0)
+    val render = new UMatrixRender(radius, umatrix, mm._2)
+    l.umatrixNodes(render.render)
+    org.opencv.imgcodecs.Imgcodecs.imwrite("/home/mark/umatrix-only.jpg", umatrix)
+//    l.umatrixNodes(render.showDistance)
+/*
     l.members.flatten.foreach((n) =>
       (n.ngbrs zip n.ngbrs.map(_.neighborDist2())).foreach((d) => {
         val mid = new Point(radius+2*(n.x+d._1.x)*radius/2, radius+2*(n.y+d._1.y)*radius/2)
         val grey = 255.0 * d._2._2 / mm._2
         org.opencv.imgproc.Imgproc.circle(umatrix, mid, radius/2, new Scalar(grey, grey, grey), -1, 8, 0)
       }))
+*/
     l.members.flatten.foreach((n) => 
       org.opencv.imgproc.Imgproc.circle(umatrix, 
                                         new Point((2*n.x+1)*radius, (2*n.y+1)*radius), 
-                                        (1.66*radius/2.0).toInt, 
+                                        (1.5*radius/2.0).toInt, 
                                         new Scalar(255.0*n.w(0), 255.0*n.w(1), 255.0*n.w(2)), 
                                         -1, 8, 0))
 
@@ -106,6 +111,16 @@ def eval_function(start: Double, end: Double, step: Double, epoch: Int, ts: Int,
   }
 }
 
+class UMatrixRender(radius: Int, u: Mat, mxd2: Double) {
+  def render(x: Double, y: Double, d2: Double) : Unit = {
+    val pt = new Point(radius+2*radius*x, radius+2*radius*y)
+    val grey = 255.0 * d2 / mxd2
+    org.opencv.imgproc.Imgproc.circle(u, pt, radius/2, new Scalar(grey, grey, grey), -1, 8, 0)
+  }
+  def showDistance(x: Double, y: Double, d2: Double) : Unit = {
+    println("Distance at (" + x + "," + y + ") is " + d2)
+  }
+}
 
 class Progress(epochStep: Int, iterationStep: Int, radius: Int, img: Mat) {
   val out_template: String = "/home/mark/test-%E-%T.jpg"
