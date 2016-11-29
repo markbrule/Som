@@ -1,6 +1,29 @@
 package org.mrb.som
 
 import scala.math._
+import javax.json._
+
+object SomLatticeFactory {
+  def createLattice(t: String, rows: Int, cols: Int, dim: Int) : SomLattice = {
+    var lat: SomLattice = if (t == "rect") new SomLatticeRect() else new SomLatticeHex()
+    lat.rows = rows
+    lat.cols = cols
+    lat.dim = dim
+    lat.config = null
+    lat.init
+    lat
+  }
+  
+  def createLattice(cfg: JsonObject) : SomLattice = {
+    val t: String = cfg.getString("type")
+    var lat: SomLattice = if (t == "rect") new SomLatticeRect() else new SomLatticeHex()
+    lat.rows = cfg.getInt("rows")
+    lat.cols = cfg.getInt("cols")
+    lat.config = cfg
+    lat.init
+    lat
+  }
+}
 
 /**
  * Classes for creating and managing a lattice (2-dimensional) of SOM Nodes
@@ -9,10 +32,16 @@ import scala.math._
  *  (rows, cols) as Ints - the dimensions of the lattice
  *  (dim) as Int - the cardinality of the input vectors
  */
-class SomLattice(var rows: Int, var cols: Int, var dim: Int) {
+abstract class SomLattice() {
+
+  var rows: Int = 0
+  var cols: Int = 0
+  var dim: Int = 0
+  var config: JsonObject = null
   var members = Array.ofDim[SomNode](rows,cols)
   
-  def init() = {}
+  def init()
+  def latticeType(): String
   
   /**
    * Return the SOM Node in the lattice that is closest to the provided input vector
@@ -81,6 +110,72 @@ class SomLattice(var rows: Int, var cols: Int, var dim: Int) {
     })
   }
   
+  /**
+   * Pick an (x,y) that represents a given input vector
+   * Find the BMU then offset it toward a weighted average of the neighbors
+   */
+  def selectRepPt(iv: Array[Double]): (Double, Double) = {
+    val bmu: SomNode = closestTo(iv)
+    val dist2Bmu = bmu.dist2(iv)
+    var xy = (bmu.x, bmu.y)
+// TODO   if (dist2Bmu > 0) {
+      val jj: List[(Double,Double)] = bmu.ngbrs.map((n) => (dist2Bmu/n.dist2(iv)*(n.x-bmu.x), dist2Bmu/n.dist2(iv)*(n.y-bmu.y)))
+      val xxy: (Double,Double) = jj.reduce((xy1,xy2) => (xy1._1+xy2._1, xy1._2+xy2._2))
+      xy = (bmu.x+xxy._1/bmu.ngbrs.length, bmu.y+xxy._2/bmu.ngbrs.length)
+//    }
+    xy
+  }
+  
+  /**
+   * Create a JSON object for the lattice
+   */
+  def serialize(fact: JsonBuilderFactory = null) : JsonObject = {
+    var factory = if (fact == null) Json.createBuilderFactory(null) else fact
+    // members factory
+    val mFact = factory.createArrayBuilder()
+    members.flatten.foreach((somNode) => mFact.add(somNode.serialize(factory)))
+    val sFact = factory.createArrayBuilder()
+    for { r <- 0 until rows
+          c <- 0 until cols
+    } { 
+        sFact.add(factory.createObjectBuilder()
+                  .add("row",r)
+                  .add("column",c)
+                  .add("node",members(r)(c).id.toString)
+                  .build())
+    }
+    factory.createObjectBuilder()
+      .add("type", latticeType)
+      .add("rows", rows)
+      .add("cols", cols)
+      .add("members", mFact.build())
+      .add("structure", sFact.build())
+      .build()
+  }
+  
+  /**
+   * Recreate the lattice from a JSON object
+   */
+  def unserialize(c: JsonObject) = {
+    import scala.collection.mutable.HashMap
+    var nodes: HashMap[String,SomNode] = new HashMap[String,SomNode]()
+    var neighbors: HashMap[String,Array[String]] = new HashMap[String,Array[String]]
+    def createWeights(o: JsonObject): Array[Double] = o.getJsonArray("w").toArray().map((v:Object) => v.toString().toDouble)
+    c.getJsonArray("members")
+      .toArray()
+      .map((o:Object) => o.asInstanceOf[JsonObject])
+      .foreach((o:JsonObject) => {
+        val sn = new SomNode(o.getJsonNumber("x").doubleValue(), o.getJsonNumber("y").doubleValue(), o.getInt("dim"), (_) => createWeights(o))
+        nodes.put(o.getString("id"), sn)
+        neighbors.put(o.getString("id"), o.getJsonArray("ngbrs").toArray().map(_.asInstanceOf[JsonString].getString()))
+      })
+    neighbors.foreach((p:(String,Array[String])) => p._2.foreach((t:String) => nodes.getOrElse(p._1,null).addNeighbor(nodes.getOrElse(t,null))))
+    c.getJsonArray("structure")
+      .toArray()
+      .map((o:Object) => o.asInstanceOf[JsonObject])
+      .foreach((jo:JsonObject) => members(jo.getInt("row"))(jo.getInt("column")) = nodes.getOrElse(jo.getString("node"),null))
+  }
+    
   def show(neighbors: Boolean) : Unit = {
     var i, j = 0
     var s = ""

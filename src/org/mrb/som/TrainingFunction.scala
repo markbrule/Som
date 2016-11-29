@@ -17,8 +17,8 @@ abstract class TrainingFunction(rows: Int, columns: Int, maxEpochs:Int, maxSteps
     val dx = x - cx
     val dy = y - cy
     val d2 = dx*dx + dy*dy
-    val mapRadius = max(rows,columns) / 2
-    val nc = max(1.0, mapRadius * (1.0 - (ts.toDouble/maxSteps)) / epoch.toDouble)
+    val mapRadius = (max(rows,columns)).toDouble / 2
+    val nc = max(1.0, mapRadius * (1.0 - ((ts-1).toDouble/maxSteps)) / epoch.toDouble)
     exp( -d2 / (2*nc*nc) )
   }
   
@@ -26,8 +26,8 @@ abstract class TrainingFunction(rows: Int, columns: Int, maxEpochs:Int, maxSteps
     val dx = x - cx
     val dy = y - cy
     val d2 = (dx*dx) + (dy*dy)
-    val mapRadius = max(rows,columns) / 2
-    val nc = mapRadius * (1.0 - ts.toDouble/maxSteps)
-    if (d2 <= nc) 1.0 else 0.0
+    val mapRadius = (max(rows,columns).toDouble) / 2
+    val nc = mapRadius * (1.0 - (ts-1).toDouble/maxSteps)
+    if (d2 <= nc*nc) 1.0 else 0.0
   }
 }

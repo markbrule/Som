@@ -2,12 +2,14 @@ package org.mrb.som
 
 import scala.math.min
 import scala.math.max
+import javax.json._
+import java.util.UUID
 
 /**
  * SomNode - class to implement a single Node in a SOM
  * 
  * Constructor:
- * 	(x, y) as Doubles to locate the node on a Cartesion Grid
+ * 	(x, y) as Doubles to locate the node on a Cartesian Grid
  *  (dim) as Int identifying the cardinality of the input vectors
  *  f:(Int) => Array[Double] for initializing the weights on the node
  *
@@ -15,6 +17,7 @@ import scala.math.max
 class SomNode(var x: Double, var y: Double, var dim: Int, init: (Int) => Array[Double]) {
   var ngbrs: List[SomNode] = Nil
   var w: Array[Double] = init(dim)
+  val id: UUID = UUID.randomUUID()
   
   /**
    * Add a relationship to a neighboring node. Neighbors that are 1 unit away should be related
@@ -58,6 +61,26 @@ class SomNode(var x: Double, var y: Double, var dim: Int, init: (Int) => Array[D
     val mx = d.reduce((a:Double, b:Double) => max(a,b))
     val mn = d.reduce((a:Double, b:Double) => min(a,b))
     (mn,mx)
+  }
+  
+  /**
+   * Create a JSON object for this SOM Node
+   */
+  def serialize(fact: JsonBuilderFactory = null): JsonObject = {
+    var factory = if (fact == null) Json.createBuilderFactory(null) else fact
+    val nFact = factory.createArrayBuilder()
+    ngbrs.foreach((somNode) => nFact.add(somNode.id.toString()))
+    val wFact = factory.createArrayBuilder()
+    w.foreach((ws) => wFact.add(ws))
+    
+    factory.createObjectBuilder()
+      .add("id", id.toString())
+      .add("x", x)
+      .add("y", y)
+      .add("dim", dim)
+      .add("ngbrs", nFact.build())
+      .add("w", wFact.build())
+      .build()
   }
   
   override def toString = { "loc = (" + "%.3f".format(x) + "," + "%.3f".format(y) + 
