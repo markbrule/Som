@@ -78,7 +78,7 @@ object Test {
     
     l.show(false)
     // TODO: only if not set in config
-    ivecs = initTrainingVectors(randomVecs, jitter)
+    if (ivecs == null) ivecs = initTrainingVectors(randomVecs, jitter)
 
     maxRow = l.members.flatten.maxBy[Double](_.y).y.toInt + 1
     maxCol = l.members.flatten.maxBy[Double](_.x).x.toInt + 1
@@ -331,22 +331,25 @@ object Test {
      */
     def unserialize(masterCfg: JsonObject) = {
       val cfg: JsonObject = masterCfg.getJsonObject("config")
-      rows = cfg.getInt("rows")
-      columns = cfg.getInt("columns")
-      dimension = cfg.getInt("dimension")
-      epochs = cfg.getInt("epochs")
-      its = cfg.getInt("its")
-      jitter = cfg.getJsonNumber("jitter").doubleValue()
-      corner = cfg.getBoolean("corner")
-      basePath = cfg.getString("base-path")
-      fileTemplate = cfg.getString("file-template")
-      showMarkers = cfg.getBoolean("show-markers")
-      time = cfg.getString("time")
-      learn = cfg.getString("learn")
-      randomCounts = cfg.getJsonArray("random-counts").toArray().map(_.asInstanceOf[JsonNumber].intValue())
-      ivecs = cfg.getJsonArray("training-set").toArray().map((a:Object) => a.asInstanceOf[JsonArray].toArray().map(_.asInstanceOf[JsonNumber].doubleValue())).toList
+      try { rows = cfg.getInt("rows") } catch { case e: Exception => {} }
+      try { columns = cfg.getInt("columns") } catch { case e: Exception => {} }
+      try { dimension = cfg.getInt("dimension") } catch { case e: Exception => {} }
+      try { epochs = cfg.getInt("epochs") } catch { case e: Exception => {} }
+      try { its = cfg.getInt("its") } catch { case e: Exception => {} }
+      if (cfg.getJsonNumber("jitter") != null) jitter = cfg.getJsonNumber("jitter").doubleValue()
+      try { corner = cfg.getBoolean("corner") } catch { case e: Exception => {} }
+      if (cfg.getString("base-path",null) != null) basePath = cfg.getString("base-path") 
+      if (cfg.getString("file-template",null) != null) fileTemplate = cfg.getString("file-template")
+      try { showMarkers = cfg.getBoolean("show-markers") } catch { case e: Exception => {} }
+      if (cfg.getString("time",null) != null) time = cfg.getString("time")
+      if (cfg.getString("learn",null) != null) learn = cfg.getString("learn")
+      if (cfg.get("random-counts") != null) randomCounts = cfg.getJsonArray("random-counts").toArray().map(_.asInstanceOf[JsonNumber].intValue())
+      if (cfg.get("training-set") != null) 
+        ivecs = cfg.getJsonArray("training-set").toArray()
+                   .map((a:Object) => a.asInstanceOf[JsonArray].toArray()
+                   .map(_.asInstanceOf[JsonNumber].doubleValue())).toList
       val latticeCfg: JsonObject = masterCfg.getJsonObject("lattice")
-      l = SomLatticeFactory.createLattice(latticeCfg)
+      if (latticeCfg != null) l = SomLatticeFactory.createLattice(latticeCfg)
     }
     
     /**
