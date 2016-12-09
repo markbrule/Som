@@ -63,21 +63,21 @@ abstract class SomLattice() {
   /**
    * Apply training cycle for specified number of epochs
    */
-  def train(ivs: List[Array[Double]], epochs: Int, steps: Int, 
+  def train(ivs: InputVectors, epochs: Int, steps: Int, 
       fn: (Double, Double, Double, Double, Int, Int) => Double,
       progress: (SomLattice, Int, Int) => Unit) = {
-    println("Beginning average E(QE) is " + averageQuantError(ivs))
+    println("Beginning average E(QE) is " + averageQuantError(ivs.ivecs))
     for {
       e <- 0 until epochs
       t <- 0 until steps
     } {
       if (t == 0) { 
-        println("Average E(QE) beginning epoch " + (e+1) + " is " + averageQuantError(ivs))
+        println("Average E(QE) beginning epoch " + (e+1) + " is " + averageQuantError(ivs.ivecs))
       }
       progress(this, e, t)
-      ivs.foreach( applyLearningSingle(_, e+1, t+1, fn ) )
+      ivs.ivecs.foreach( applyLearningSingle(_, e+1, t+1, fn ) )
     }
-    println("Final average E(QE) is " + averageQuantError(ivs))
+    println("Final average E(QE) is " + averageQuantError(ivs.ivecs))
   }
   
   /**

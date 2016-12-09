@@ -39,7 +39,7 @@ object Test {
   
   var img: Mat = null
   var l: SomLattice = null
-  var ivecs: List[Array[Double]] = null
+  var ivecs: InputVectors = null
   var theta: TrainingFunction = null
   var progress: Progress = null
   var createUmatrix: Boolean = true
@@ -76,7 +76,7 @@ object Test {
     opts = cmdLineOptions()
     parseCmdLine(args, opts)
     
-    l.show(false)
+//    l.show(false)
     // TODO: only if not set in config
     if (ivecs == null) ivecs = initTrainingVectors(randomVecs, jitter)
 
@@ -92,13 +92,13 @@ object Test {
     println("Fixed neighborhood functions")
     println("Training for " + epochs + " epochs with " + its + " iterations per cycle")
     println("Network has " + (rows*columns) + " nodes")
-    println("Total of " + ivecs.length + " input vectors")
+    println("Total of " + ivecs.ivecs.length + " input vectors")
     println("Using " + theta.getClass.getName)
     println("Using lattice " + l.getClass.getName)
     println("Jitter of " + jitter.toString)
     println("Base vectors are " + (if (corner) "at the corners" else "inside the corners"))
     (0 until baseVectors).foreach((i) => println("(" +
-        ivecs(i).map((x) => "%.1f".format(x)).reduce(_ + "," + _) 
+        ivecs.ivecs(i).map((x) => "%.1f".format(x)).reduce(_ + "," + _) 
         + ") has " + randomCounts(i) + " neighbors"))
     l.train(ivecs, epochs, its, theta.eval, progress.show)
     
@@ -134,32 +134,19 @@ object Test {
      * 
      * Populate corner vectors, and then add random vectors clustered around them
      */
-    def initTrainingVectors(rndCount: Int, jitter: Double): List[Array[Double]] = {
+    def initTrainingVectors(rndCount: Int, jitter: Double): InputVectors = {
       val offset = if (corner) 0.0 else jitter
-      var ivecs = List(Array(1.0-offset, offset, offset))
-      if (baseVectors >= 2) ivecs = ivecs :+ Array(    offset, 1.0-offset,     offset)
-      if (baseVectors >= 3) ivecs = ivecs :+ Array(    offset,     offset, 1.0-offset)
-      if (baseVectors >= 4) ivecs = ivecs :+ Array(1.0-offset,     offset, 1.0-offset)
-      if (baseVectors >= 5) ivecs = ivecs :+ Array(    offset, 1.0-offset, 1.0-offset)
-      if (baseVectors >= 6) ivecs = ivecs :+ Array(1.0-offset, 1.0-offset,     offset)
-      if (baseVectors >= 7) ivecs = ivecs :+ Array(1.0-offset, 1.0-offset, 1.0-offset)
-      if (baseVectors >= 8) ivecs = ivecs :+ Array(    offset,     offset,     offset)
+      var baseVecs = List(Array(1.0-offset, offset, offset))
+      if (baseVectors >= 2) baseVecs = baseVecs :+ Array(    offset, 1.0-offset,     offset)
+      if (baseVectors >= 3) baseVecs = baseVecs :+ Array(    offset,     offset, 1.0-offset)
+      if (baseVectors >= 4) baseVecs = baseVecs :+ Array(1.0-offset,     offset, 1.0-offset)
+      if (baseVectors >= 5) baseVecs = baseVecs :+ Array(    offset, 1.0-offset, 1.0-offset)
+      if (baseVectors >= 6) baseVecs = baseVecs :+ Array(1.0-offset, 1.0-offset,     offset)
+      if (baseVectors >= 7) baseVecs = baseVecs :+ Array(1.0-offset, 1.0-offset, 1.0-offset)
+      if (baseVectors >= 8) baseVecs = baseVecs :+ Array(    offset,     offset,     offset)
 
-      randomCounts = new Array[Int](baseVectors)
-      (0 until baseVectors).foreach(randomCounts(_) = 0)
-      for {
-        i <- 0 until rndCount
-      } {
-        val baseInx = scala.util.Random.nextInt(baseVectors)
-        val base = ivecs(baseInx)
-        val j0 = jitter * (2*scala.util.Random.nextDouble() - 1)
-        val j1 = jitter * (2*scala.util.Random.nextDouble() - 1)
-        val j2 = jitter * (2*scala.util.Random.nextDouble() - 1)
-        ivecs = ivecs ++ List(Array(max(0.0,min(1.0,j0+base(0))), 
-                                    max(0.0,min(1.0,j1+base(1))), 
-                                    max(0.0,min(1.0,j2+base(2)))))
-        randomCounts(baseInx) = randomCounts(baseInx)+1
-      }
+      var ivecs = new InputVectors()
+      randomCounts = ivecs.fillClusters(3, baseVecs, jitter, rndCount)
       ivecs
     }
     
@@ -295,13 +282,7 @@ object Test {
       // base vector counts
       val baseCountsB = factory.createArrayBuilder()
       randomCounts.foreach((x) => baseCountsB.add(x))
-      // training vectors
-      val ivecB = factory.createArrayBuilder()
-      ivecs.foreach((v) => {
-        val tf = factory.createArrayBuilder()
-        v.foreach((vi) => tf.add(vi))
-        ivecB.add(tf.build())
-      })
+
       var cfg = factory.createObjectBuilder()
         .add("rows", rows)
         .add("columns", columns)
@@ -313,7 +294,7 @@ object Test {
         .add("base-vectors", baseVectors)
         .add("random-counts", baseCountsB.build())
         // TODO: umatrix
-        .add("training-set", ivecB.build())
+        .add("training-set", ivecs.serialize(factory)/* TODO: ivecB.build() */)
         .add("base-path", basePath)
         .add("file-template", fileTemplate)
         .add("show-markers", showMarkers)
@@ -344,10 +325,11 @@ object Test {
       if (cfg.getString("time",null) != null) time = cfg.getString("time")
       if (cfg.getString("learn",null) != null) learn = cfg.getString("learn")
       if (cfg.get("random-counts") != null) randomCounts = cfg.getJsonArray("random-counts").toArray().map(_.asInstanceOf[JsonNumber].intValue())
-      if (cfg.get("training-set") != null) 
-        ivecs = cfg.getJsonArray("training-set").toArray()
+      if (cfg.get("training-set") != null) ivecs.unserialize(cfg)
+/*        ivecs = cfg.getJsonArray("training-set").toArray()
                    .map((a:Object) => a.asInstanceOf[JsonArray].toArray()
                    .map(_.asInstanceOf[JsonNumber].doubleValue())).toList
+*/
       val latticeCfg: JsonObject = masterCfg.getJsonObject("lattice")
       if (latticeCfg != null) l = SomLatticeFactory.createLattice(latticeCfg)
     }
@@ -398,7 +380,7 @@ class UMatrixRender(radius: Int, u: Mat, mxd2: Double) {
   }
 }
 
-class Progress(epochStep: Int, iterationStep: Int, radius: Int, img: Mat, out_template: String, iv: List[Array[Double]]) {
+class Progress(epochStep: Int, iterationStep: Int, radius: Int, img: Mat, out_template: String, iv: InputVectors) {
   val textMarg = 20
   def show(l: SomLattice, epoch: Int, step: Int): Unit =
   {
@@ -411,7 +393,7 @@ class Progress(epochStep: Int, iterationStep: Int, radius: Int, img: Mat, out_te
         l.members.flatten.foreach((n: SomNode) => org.opencv.imgproc.Imgproc.circle(img, new Point((2*(n.x)+1)*radius, (2*n.y+1)*radius), radius, color_node(n.w), -1, 8, 0))
         val white = new Scalar(255.0,255.0,255.0)
         if (iv != null)
-          iv.foreach((v) => {
+          iv.ivecs.foreach((v) => {
             val xy = l.selectRepPt(v)
             val d = radius/2
             val black = new Scalar(0.0, 0.0, 0.0)
