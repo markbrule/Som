@@ -74,9 +74,8 @@ class InputVectors {
  	 * Randomize one single dimension of the training vectors
  	 */
   def randomizeOneDimension(d: Int, min: Double, max: Double): InputVectors = {
-    ivecs.map((a) => { 
+    ivecs.foreach((a) => { 
       a(d) = min + Random.nextDouble()*(max-min)
-      d
     })
     this
   }
